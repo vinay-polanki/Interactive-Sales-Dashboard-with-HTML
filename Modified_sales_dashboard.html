@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Interactive Sales Dashboard</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #e0f7fa; /* Icy blue */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h2 {
+      color: #006064;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    #upload {
+      margin-bottom: 30px;
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 10px;
+      padding: 10px 20px;
+      backdrop-filter: blur(10px);
+      color: #006064;
+      cursor: pointer;
+    }
+
+    .chart-container {
+      width: 40%;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      padding: 20px;
+      margin-bottom: 40px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Sales Performance Dashboard</h2>
+  <input type="file" id="upload" accept="application/json" />
+
+  <div id="salesOverTime" class="chart-container"></div>
+  <div id="profitByCategory" class="chart-container"></div>
+  <div id="topCustomers" class="chart-container"></div>
+  <div id="salesByRegion" class="chart-container"></div>
+  <div id="discountVsProfit" class="chart-container"></div>
+
+  <script>
+    document.getElementById('upload').addEventListener('change', function (event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const data = JSON.parse(e.target.result);
+        const salesData = Array.isArray(data) ? data : [data];
+        generateDashboard(salesData);
+      };
+      reader.readAsText(file);
+    });
+
+    function generateDashboard(data) {
+      const salesTimeMap = {};
+      data.forEach(row => {
+        const date = row['Order Date'];
+        salesTimeMap[date] = (salesTimeMap[date] || 0) + row['Sales'];
+      });
+      const dates = Object.keys(salesTimeMap).sort((a, b) => new Date(a) - new Date(b));
+      const sales = dates.map(d => salesTimeMap[d]);
+      Plotly.newPlot('salesOverTime', [{ x: dates, y: sales, type: 'scatter', mode: 'lines+markers' }], { title: 'Sales Over Time' });
+
+      const profitByCat = {};
+      data.forEach(row => {
+        const cat = row['Category'];
+        profitByCat[cat] = (profitByCat[cat] || 0) + row['Profit'];
+      });
+      Plotly.newPlot('profitByCategory', [{ x: Object.keys(profitByCat), y: Object.values(profitByCat), type: 'bar' }], { title: 'Profit by Category' });
+
+      const customerSales = {};
+      data.forEach(row => {
+        const name = row['Customer Name'];
+        customerSales[name] = (customerSales[name] || 0) + row['Sales'];
+      });
+      const sortedCustomers = Object.entries(customerSales).sort((a, b) => b[1] - a[1]).slice(0, 10);
+      Plotly.newPlot('topCustomers', [{
+        x: sortedCustomers.map(c => c[1]),
+        y: sortedCustomers.map(c => c[0]),
+        type: 'bar',
+        orientation: 'h'
+      }], { title: 'Top 10 Customers by Sales' });
+
+      const regionSales = {};
+      data.forEach(row => {
+        const region = row['Region'];
+        regionSales[region] = (regionSales[region] || 0) + row['Sales'];
+      });
+      Plotly.newPlot('salesByRegion', [{
+        labels: Object.keys(regionSales),
+        values: Object.values(regionSales),
+        type: 'pie'
+      }], { title: 'Sales by Region' });
+
+      Plotly.newPlot('discountVsProfit', [{
+        x: data.map(d => d['Discount']),
+        y: data.map(d => d['Profit']),
+        mode: 'markers',
+        type: 'scatter',
+        marker: { size: 8 }
+      }], { title: 'Discount vs Profit Scatter Plot', xaxis: { title: 'Discount' }, yaxis: { title: 'Profit' } });
+    }
+  </script>
+</body>
+</html>
